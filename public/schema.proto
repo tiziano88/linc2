@@ -1,13 +1,29 @@
 syntax = "proto3";
 
-message Message {
-  string field1 = 1;
-  repeated int64 field2 = 2;
-  SubMessage field3 = 3;
-  int64 field4 = 4;
+// https://doc.rust-lang.org/cargo/reference/manifest.html
+
+message Manifest {
+  Package package = 1;
+  repeated Dependency dependencies = 2;
+  repeated Dependency dev_dependencies = 3;
+  repeated Dependency build_dependencies = 4;
+  string foo = 5;
 }
 
-message SubMessage {
-  string subField1 = 1;
-  string subField2 = 2;
+message Package {
+  string name = 1;
+  string version = 2;
+  repeated string authors = 3;
+  string edition = 4;
+  string rust_version = 5;
+  string description = 6;
+}
+
+message Dependency {
+  string name = 1;
+  string version = 2;
+  string registry = 3;
+  string path = 4;
+  string git = 5;
+  string branch = 6;
 }

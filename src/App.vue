@@ -1,17 +1,16 @@
 <script setup lang="ts">
-import Field from './components/Field.vue'
+import Field from "./components/Field.vue";
 import ObjectComponent from "./components/ObjectComponent.vue";
-import type { ValueField, ValueObject } from './schema';
-import { updateExpression } from '@babel/types';
-import { loadProto } from './utils/protoloader';
-import protobuf, { Message } from 'protobufjs';
-import { onMounted } from 'vue';
+import type { ValueField, ValueObject } from "./schema";
+import { updateExpression } from "@babel/types";
+import { loadProto } from "./utils/protoloader";
+import protobuf, { Message } from "protobufjs";
+import { onMounted } from "vue";
 </script>
 
 <script lang="ts">
 export default {
-  props: {
-  },
+  props: {},
   created() {
     this.getSchema();
   },
@@ -23,8 +22,8 @@ export default {
   },
   computed: {
     rootType() {
-      return this.schema.lookupType("Message");
-    }
+      return this.schema.lookupType("Manifest");
+    },
   },
   methods: {
     getSchema() {
@@ -33,30 +32,35 @@ export default {
         this.schema = p;
         const MessageType = this.rootType;
         this.v = MessageType.create({
-          "field1": "test",
+          field1: "test",
         });
       });
     },
     up(n: any) {
       console.log("update object: ", n);
       this.v = n;
-    }
-  }
+    },
+  },
 };
 </script>
 
 <template>
   <main>
-    <ObjectComponent :model-value="v" @update:model-value="up" :schema="schema" message-type="Message"></ObjectComponent>
+    <ObjectComponent
+      :model-value="v"
+      @update:model-value="up"
+      :schema="schema"
+      message-type="Manifest"
+    ></ObjectComponent>
 
     <div>
       message
-      {{ v.toJSON() || 'not set' }}
+      {{ v.toJSON() || "not set" }}
     </div>
 
     <div>
       encoded
-      {{ rootType.encode(v).finish() || 'not set' }}
+      {{ rootType.encode(v).finish() || "not set" }}
     </div>
 
     <div>

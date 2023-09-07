@@ -13,6 +13,7 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "generator-code": "^1.7.5",
     "pinia": "^2.0.32",
     "protobufjs": "^7.2.3",
     "vue": "^3.2.47"
@@ -32,6 +33,7 @@
     "jsdom": "^21.1.0",
     "npm-run-all": "^4.1.5",
     "prettier": "^2.8.4",
+    "tailwindcss": "^3.3.2",
     "typescript": "~4.8.4",
     "vite": "^4.1.4",
     "vitest": "^0.29.1",
