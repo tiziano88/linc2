@@ -3,11 +3,13 @@ syntax = "proto3";
 // https://doc.rust-lang.org/cargo/reference/manifest.html
 
 message Manifest {
+  string single_string = 5;
+  string single_string_2 = 6;
+  repeated string repeated_string = 7;
   Package package = 1;
   repeated Dependency dependencies = 2;
   repeated Dependency dev_dependencies = 3;
   repeated Dependency build_dependencies = 4;
-  string foo = 5;
 }
 
 message Package {

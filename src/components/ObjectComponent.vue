@@ -2,47 +2,46 @@
 import Field from "./Field.vue";
 import type { ValueField, ValueObject } from "../schema";
 import { loadProto } from "@/utils/protoloader";
-import { watch } from "vue";
+import { toRaw, watch } from "vue";
 
 export default {
   props: {
     modelValue: Object as () => protobuf.Message,
     schema: Object as () => protobuf.Root,
-    messageType: String,
+    messageTypeName: String,
   },
-  emits: ["update:modelValue"],
+  emits: ["update:modelValue", "action"],
   methods: {
     update(f: protobuf.Field, v: any) {
-      console.log("update", this.messageType, f, v);
-      let T = this.schema!.lookupType(this.messageType!);
+      console.log("update", this.messageTypeName, toRaw(f), toRaw(v));
+      let MessageType = this.schema!.lookupType(this.messageTypeName!);
       let old_value = this.modelValue ?? {};
-      let o = T.fromObject(old_value);
-      console.log("current object", o);
+      let o = MessageType.fromObject(old_value);
+      console.log("current object", toRaw(o));
+      console.log("current field", toRaw(f));
       (o as any)[f.name] = v;
       this.$emit("update:modelValue", o);
     },
   },
-  setup(props, ctx) {
-    try {
-      const MessageType = props.schema!.lookupType(props.messageType!);
-      console.log("message type", MessageType);
-    } catch (e) {
-      console.log("error", e);
-    }
-  },
+  setup(props, ctx) {},
   computed: {
-    fields() {
-      const MessageType = this.schema!.lookupType(this.messageType!);
-      console.log("message type", MessageType);
-      try {
-        return MessageType.fieldsArray;
-      } catch (e) {
-        console.log("error looking up message type in schema", e);
+    fields(): protobuf.Field[] {
+      if (
+        this.schema === null ||
+        this.schema === undefined ||
+        !this.messageTypeName ||
+        this.messageTypeConcrete === null
+      ) {
         return [];
       }
+      return this.messageTypeConcrete.fieldsArray;
     },
-    messageTypeConcrete() {
-      return this.schema!.lookupType(this.messageType!);
+    messageTypeConcrete(): protobuf.Type | null {
+      try {
+        return this.schema!.lookupType(this.messageTypeName!);
+      } catch (e) {
+        return null;
+      }
     },
   },
   components: {
@@ -52,6 +51,7 @@ export default {
 </script>
 
 <template>
+  <button @click="$emit('action', { type: 'add' })">Add</button>
   <ul>
     <li v-for="(f, i) in fields" :key="f.name">
       <Field

@@ -1,4 +1,5 @@
 <script lang="ts">
+import { toRaw } from "vue";
 import type { ValueField, ValueObject } from "../schema";
 import ObjectComponent from "./ObjectComponent.vue";
 
@@ -10,8 +11,7 @@ export default {
   },
   emits: ["update:modelValue"],
   computed: {
-    showString() {
-      console.log("field", this.field);
+    showString(): boolean {
       return (
         this.field!.type === "string" ||
         this.field!.type === "int32" ||
@@ -20,11 +20,14 @@ export default {
         // this.field!.repeated === false
       );
     },
-    repeated() {
+    repeated(): boolean {
       return this.field!.repeated;
     },
+    isNull(): boolean {
+      return this.modelValue === null || this.modelValue === undefined;
+    },
     stringValue: {
-      get() {
+      get(): string {
         return this.modelValue as string;
       },
       set(v: string) {
@@ -45,7 +48,7 @@ export default {
         } else {
           console.log("unknown type", this.field!.type);
         }
-        // this.$emit('update:modelValue', v);
+        // this.$emit("update:modelValue", v);
       },
     },
   },
@@ -54,6 +57,19 @@ export default {
       console.log("field update", v);
       // let o = this.modelValue!;
       this.$emit("update:modelValue", v);
+    },
+    addValue() {
+      console.log("add value");
+      if (this.field!.repeated) {
+        console.log("current value", toRaw(this.modelValue));
+        let o = this.modelValue ?? [];
+        o.push(null);
+        o.push(null);
+        console.log("new value", toRaw(this.modelValue));
+        this.$emit("update:modelValue", o);
+      } else {
+        this.$emit("update:modelValue", null);
+      }
     },
   },
   beforeCreate() {
@@ -65,17 +81,24 @@ export default {
 </script>
 
 <template>
-  {{ field!.name }}: {{ field!.type }} <span>{{ modelValue?.name }}</span
-  >:
+  {{ field!.name }}: {{ field!.type }}
+  <span>
+    <!-- {{ modelValue?.name }} -->
+  </span>
+  :
   <span v-if="showString">
     <textarea v-model="stringValue"></textarea>
   </span>
   <span v-else>
-    <ObjectComponent
-      :model-value="modelValue?.value"
-      @update:model-value="updateObject($event)"
-      :schema="schema"
-      :message-type="field!.type"
-    ></ObjectComponent>
+    <div v-if="repeated">len: {{ modelValue?.length }}</div>
+    <div v-else="repeated">
+      <ObjectComponent
+        :model-value="modelValue?.value"
+        @update:model-value="updateObject($event)"
+        :schema="schema"
+        :message-type-name="field!.type"
+      ></ObjectComponent>
+    </div>
   </span>
+  <span v-if="repeated || isNull" @click="addValue"> + </span>
 </template>

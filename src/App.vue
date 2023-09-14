@@ -3,9 +3,9 @@ import Field from "./components/Field.vue";
 import ObjectComponent from "./components/ObjectComponent.vue";
 import type { ValueField, ValueObject } from "./schema";
 import { updateExpression } from "@babel/types";
-import { loadProto } from "./utils/protoloader";
+import { loadProto, type Action } from "./utils/protoloader";
 import protobuf, { Message } from "protobufjs";
-import { onMounted } from "vue";
+import { onMounted, toRaw } from "vue";
 </script>
 
 <script lang="ts">
@@ -18,11 +18,17 @@ export default {
     return {
       v: new protobuf.Message({}),
       schema: protobuf.Root.fromJSON({}),
+      rootTypeName: "Manifest",
     };
   },
   computed: {
-    rootType() {
-      return this.schema.lookupType("Manifest");
+    rootType(): protobuf.Type | null {
+      try {
+        return this.schema.lookupType(this.rootTypeName);
+      } catch (e) {
+        // console.log("error looking up root type", e);
+        return null;
+      }
     },
   },
   methods: {
@@ -31,14 +37,21 @@ export default {
         console.log("loaded schema", p);
         this.schema = p;
         const MessageType = this.rootType;
+        if (!MessageType) {
+          console.log("no schema found type");
+          return;
+        }
         this.v = MessageType.create({
           field1: "test",
         });
       });
     },
     up(n: any) {
-      console.log("update object: ", n);
+      console.log("updating root object: ", toRaw(n));
       this.v = n;
+    },
+    action(action: Action) {
+      console.log("action", action);
     },
   },
 };
@@ -50,22 +63,23 @@ export default {
       :model-value="v"
       @update:model-value="up"
       :schema="schema"
-      message-type="Manifest"
+      :message-type-name="rootTypeName"
+      @action="action"
     ></ObjectComponent>
 
     <div>
       message
-      {{ v.toJSON() || "not set" }}
+      <!-- {{ v?.toJSON() || "not set" }} -->
     </div>
 
     <div>
       encoded
-      {{ rootType.encode(v).finish() || "not set" }}
+      {{ rootType?.encode(v)?.finish() || "not set" }}
     </div>
 
     <div>
       schema
-      {{ schema.toJSON() }}
+      <!-- {{ schema.toJSON() }} -->
     </div>
   </main>
 </template>
