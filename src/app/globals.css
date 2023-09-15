@@ -17,19 +17,27 @@
 }
 
 .fieldDescriptor {
-  @apply bg-slate-400 inline outline outline-1 border-cyan-800;
+  @apply bg-slate-400 inline outline outline-1 border-cyan-800 rounded-md p-1;
 }
 
 .addButton {
-  @apply bg-green-600 text-white;
+  @apply bg-green-600 text-white rounded-md;
 }
 
 .removeButton {
-  @apply bg-red-600 text-white;
+  @apply bg-red-600 text-white rounded-md;
 }
 
 .fieldValueText {
   @apply border border-gray-400 rounded-md text-black;
+}
+
+.selected {
+  @apply ring-yellow-300 ring-2;
+}
+
+.virtual {
+  @apply opacity-50;
 }
 
 body {

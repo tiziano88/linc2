@@ -1,101 +1,31 @@
 "use client";
 
-import Image from "next/image";
-import { useState } from "react";
+import AddCircleIcon from "@mui/icons-material/AddCircle";
+import RemoveCircleIcon from "@mui/icons-material/RemoveCircle";
+import { useEffect, useState } from "react";
 import { cloneDeep } from "lodash";
-
-interface MessageValue {
-  fields: Map<FieldID, Array<FieldValue>>;
-}
-
-enum T {
-  STRING = "string",
-  NUMBER = "number",
-  BOOLEAN = "boolean",
-  MESSAGE = "message",
-}
-
-type FieldValue =
-  | { type: T.STRING; value: string }
-  | { type: T.NUMBER; value: number }
-  | { type: T.BOOLEAN; value: boolean }
-  | { type: T.MESSAGE; value: MessageValue };
-
-function stringValue(value: string): FieldValue {
-  return {
-    type: T.STRING,
-    value: value,
-  };
-}
-
-function numberValue(value: number): FieldValue {
-  return {
-    type: T.NUMBER,
-    value: value,
-  };
-}
-
-function messageValue(value: MessageValue): FieldValue {
-  return {
-    type: T.MESSAGE,
-    value: value,
-  };
-}
-
-type MessageID = number;
-type FieldID = number;
-
-interface Selector {
-  fieldID: FieldID;
-  index: number;
-}
-
-type Cursor = Selector[];
-
-function printCursor(cursor: Cursor): string {
-  return cursor.map((s) => `${s.fieldID}[${s.index}]`).join(".");
-}
-
-interface Schema {
-  messages: Map<MessageID, MessageDescriptor>;
-}
-
-interface MessageDescriptor {
-  name: string;
-  fields: Map<FieldID, FieldDescriptor>;
-}
-
-interface FieldDescriptor {
-  type: FieldType;
-  name: string;
-  repeated: boolean;
-}
-
-function printFieldDescriptor(fieldDescriptor: FieldDescriptor): string {
-  if (fieldDescriptor.type.type === T.STRING) {
-    return `${fieldDescriptor.name}: string`;
-  } else if (fieldDescriptor.type.type === T.NUMBER) {
-    return `${fieldDescriptor.name}: number`;
-  } else if (fieldDescriptor.type.type === T.BOOLEAN) {
-    return `${fieldDescriptor.name}: boolean`;
-  } else if (fieldDescriptor.type.type === T.MESSAGE) {
-    return `${fieldDescriptor.name}: message ${fieldDescriptor.type.messageID}`;
-  } else {
-    return `${fieldDescriptor.name}: UNKNOWN`;
-  }
-}
-
-type FieldType =
-  | { type: T.STRING }
-  | { type: T.NUMBER }
-  | { type: T.BOOLEAN }
-  | { type: T.MESSAGE; messageID: MessageID };
-
-type Action =
-  | { type: "set"; cursor: Cursor; value: FieldValue }
-  | { type: "remove"; cursor: Cursor };
-
-type ActionHandler = (action: Action) => void;
+import _ from "lodash";
+import React from "react";
+import {
+  Action,
+  ActionHandler,
+  Cursor,
+  FieldDescriptor,
+  FieldID,
+  FieldValue,
+  MessageDescriptor,
+  MessageID,
+  MessageValue,
+  Schema,
+  T,
+  messageValue,
+  numberValue,
+  printCursor,
+  printFieldDescriptor,
+  stringValue,
+} from "./types";
+import "./schema";
+import { rustManifestSchema } from "./schema";
 
 function FieldValueView({
   schema,
@@ -104,6 +34,7 @@ function FieldValueView({
   value,
   onAction,
   cursor,
+  selected,
 }: {
   schema: Schema;
   messageID: MessageID;
@@ -111,6 +42,7 @@ function FieldValueView({
   value: FieldValue;
   onAction: ActionHandler;
   cursor: Cursor;
+  selected: Cursor;
 }) {
   function changeHandler(v: React.ChangeEvent<HTMLTextAreaElement>) {
     console.log("changeHandler", cursor, v.target.value);
@@ -124,6 +56,20 @@ function FieldValueView({
     const newCursor = cloneDeep(cursor);
     onAction({ type: "remove", cursor: newCursor });
   }
+  function handleSelect() {
+    onAction({ type: "select", cursor: cursor });
+  }
+
+  // Set focus on the textarea when the cursor is selected.
+  var textarea: HTMLTextAreaElement | null = null;
+
+  useEffect(() => {
+    // Did mount.
+    if (_.isEqual(cursor, selected)) {
+      textarea?.focus();
+    }
+  });
+
   const messageDescriptor = schema.messages.get(messageID);
   if (messageDescriptor === undefined) {
     return <div>message {messageID} not found</div>;
@@ -141,16 +87,25 @@ function FieldValueView({
     if (value.type !== T.STRING) {
       return <div>value is not a string</div>;
     }
+
+    var className = "";
+    if (_.isEqual(cursor, selected)) {
+      className += "selected";
+    }
+
     return (
-      <div>
+      <div className={className} onMouseDown={handleSelect}>
         <textarea
+          ref={(el) => {
+            textarea = el;
+          }}
           rows={1}
           className="fieldValueText"
           value={value.value}
           onChange={changeHandler}
         ></textarea>
         <button className="removeButton" onClick={handleRemove}>
-          REMOVE
+          <RemoveCircleIcon></RemoveCircleIcon>
         </button>
       </div>
     );
@@ -168,14 +123,24 @@ function FieldValueView({
     if (value.type !== T.MESSAGE) {
       return <div>value is not a message</div>;
     }
+    var className = "";
+    if (_.isEqual(cursor, selected)) {
+      className += "selected";
+    }
     return (
-      <MessageView
-        schema={schema}
-        messageID={fieldType.messageID}
-        value={value.value}
-        onAction={onAction}
-        cursor={cursor}
-      ></MessageView>
+      <div className={className}>
+        <button className="removeButton" onClick={handleRemove}>
+          <RemoveCircleIcon></RemoveCircleIcon>
+        </button>
+        <MessageView
+          schema={schema}
+          messageID={fieldType.messageID}
+          value={value.value}
+          onAction={onAction}
+          cursor={cursor}
+          selected={selected}
+        ></MessageView>
+      </div>
     );
   } else {
     return <div>-other-</div>;
@@ -189,6 +154,7 @@ function RepeatedFieldView({
   values,
   onAction,
   cursor,
+  selected,
 }: {
   schema: Schema;
   messageID: MessageID;
@@ -196,6 +162,7 @@ function RepeatedFieldView({
   values: FieldValue[];
   onAction: ActionHandler;
   cursor: Cursor;
+  selected: Cursor;
 }) {
   const messageDescriptor = schema.messages.get(messageID);
   if (messageDescriptor === undefined) {
@@ -224,6 +191,10 @@ function RepeatedFieldView({
     }
     onAction({ type: "set", cursor: newCursor, value: newValue });
   }
+  function handleSelect(event: React.MouseEvent<HTMLDivElement, MouseEvent>) {
+    event.preventDefault();
+    onAction({ type: "select", cursor: cursor });
+  }
   return (
     <div>
       <div>
@@ -231,9 +202,9 @@ function RepeatedFieldView({
           const fieldValueCursor = cloneDeep(cursor);
           fieldValueCursor[fieldValueCursor.length - 1].index = i;
           return (
-            <div key={i} className="flex">
-              <div className="fieldDescriptor">
-                [ {fieldID} : {printFieldDescriptor(fieldDescriptor)} ]
+            <div key={i} className="flex m-2">
+              <div className="fieldDescriptor" onMouseDown={handleSelect}>
+                {fieldID} : {printFieldDescriptor(fieldDescriptor)}
               </div>
               <FieldValueView
                 schema={schema}
@@ -242,18 +213,19 @@ function RepeatedFieldView({
                 value={value}
                 onAction={onAction}
                 cursor={fieldValueCursor}
+                selected={selected}
               ></FieldValueView>
             </div>
           );
         })}
       </div>
       {(values.length == 0 || fieldDescriptor.repeated) && (
-        <div>
-          <div className="fieldDescriptor">
-            [ {fieldID} : {printFieldDescriptor(fieldDescriptor)} ]
+        <div className="m-2">
+          <div className="fieldDescriptor virtual" onClick={handleAdd}>
+            {fieldID} : {printFieldDescriptor(fieldDescriptor)}
           </div>
           <button className="addButton" onClick={handleAdd}>
-            ADD
+            <AddCircleIcon></AddCircleIcon>
           </button>
         </div>
       )}
@@ -267,12 +239,14 @@ function MessageView({
   value,
   onAction,
   cursor,
+  selected,
 }: {
   schema: Schema;
   messageID: MessageID;
   value: MessageValue;
   onAction: ActionHandler;
   cursor: Cursor;
+  selected: Cursor;
 }) {
   const messageDescriptor = schema.messages.get(messageID);
   if (messageDescriptor === undefined) {
@@ -295,6 +269,7 @@ function MessageView({
                 values={values}
                 onAction={onAction}
                 cursor={fieldCursor}
+                selected={selected}
               ></RepeatedFieldView>
             </div>
           );
@@ -305,149 +280,81 @@ function MessageView({
 }
 
 export default function Home() {
-  const schema: Schema = {
-    messages: new Map<MessageID, MessageDescriptor>([
-      [
-        1,
-        {
-          name: "manifest",
-          fields: new Map<FieldID, FieldDescriptor>([
-            [
-              1,
-              {
-                type: { type: T.MESSAGE, messageID: 2 },
-                name: "package",
-                repeated: false,
-              },
-            ],
-            [
-              2,
-              {
-                type: { type: T.MESSAGE, messageID: 3 },
-                name: "dependencies",
-                repeated: true,
-              },
-            ],
-            [
-              3,
-              {
-                type: { type: T.STRING },
-                name: "field_3",
-                repeated: true,
-              },
-            ],
-            [
-              4,
-              {
-                type: { type: T.MESSAGE, messageID: 2 },
-                name: "field_4",
-                repeated: true,
-              },
-            ],
-          ]),
-        },
-      ],
-      [
-        2,
-        {
-          name: "package",
-          fields: new Map<FieldID, FieldDescriptor>([
-            [
-              1,
-              {
-                type: { type: T.STRING },
-                name: "name",
-                repeated: false,
-              },
-            ],
-            [
-              2,
-              {
-                type: { type: T.STRING },
-                name: "version",
-                repeated: false,
-              },
-            ],
-            [
-              3,
-              {
-                type: { type: T.STRING },
-                name: "authors",
-                repeated: true,
-              },
-            ],
-          ]),
-        },
-      ],
-      [
-        3,
-        {
-          name: "dependency",
-          fields: new Map<FieldID, FieldDescriptor>([
-            [
-              1,
-              {
-                type: { type: T.STRING },
-                name: "name",
-                repeated: false,
-              },
-            ],
-            [
-              2,
-              {
-                type: { type: T.STRING },
-                name: "version",
-                repeated: false,
-              },
-            ],
-            [
-              3,
-              {
-                type: { type: T.STRING },
-                name: "registry",
-                repeated: false,
-              },
-            ],
-          ]),
-        },
-      ],
-    ]),
-  };
-  const initValue2: MessageValue = {
-    fields: new Map<number, Array<FieldValue>>([
-      [1, [stringValue("hello"), stringValue("hello_2")]],
-      [
-        3,
-        [
-          messageValue({
-            fields: new Map<number, Array<FieldValue>>([
-              [1, [stringValue("nested hello")]],
-              [2, [stringValue("nested one"), stringValue("nested two")]],
-            ]),
-          }),
-        ],
-      ],
-    ]),
-  };
+  const schema: Schema = cloneDeep(rustManifestSchema);
   const initValue: MessageValue = {
     fields: new Map<number, Array<FieldValue>>([]),
   };
   const [value, setValue] = useState<MessageValue>(initValue);
+  const [cursor, setCursor] = useState<Cursor>([]);
 
   function handleAction(action: Action) {
     console.log(action);
-    if (action.type === "set") {
-      setValue((v) => {
-        const newValue = setFieldValue(v, action.cursor, action.value);
-        console.log("new value", newValue);
-        return newValue;
-      });
-    } else if (action.type === "remove") {
-      setValue((v) => {
-        const newValue = removeFieldValue(v, action.cursor);
-        console.log("new value", newValue);
-        return newValue;
-      });
+    switch (action.type) {
+      case "set":
+        setValue((v) => {
+          const newValue = setFieldValue(v, action.cursor, action.value);
+          console.log("new value", newValue);
+          return newValue;
+        });
+        setCursor(action.cursor);
+        break;
+      case "remove":
+        setValue((v) => {
+          const newValue = removeFieldValue(v, action.cursor);
+          console.log("new value", newValue);
+          return newValue;
+        });
+        break;
+      case "select":
+        setCursor(action.cursor);
+        break;
+      case "move":
+        switch (action.direction) {
+          case "previous":
+            setCursor((c) => {
+              const newCursor = cloneDeep(c);
+              if (newCursor.length > 0) {
+                const selector = newCursor[newCursor.length - 1];
+                if (selector.index > 0) {
+                  selector.index--;
+                }
+              }
+              return newCursor;
+            });
+            break;
+          case "next":
+            setCursor((c) => {
+              const newCursor = cloneDeep(c);
+              if (newCursor.length > 0) {
+                const selector = newCursor[newCursor.length - 1];
+                selector.index++;
+              }
+              return newCursor;
+            });
+            break;
+          case "parent":
+            setCursor((c) => {
+              const newCursor = cloneDeep(c);
+              if (newCursor.length > 0) {
+                newCursor.pop();
+              }
+              return newCursor;
+            });
+            break;
+          case "child":
+            setCursor((c) => {
+              const newCursor = cloneDeep(c);
+              if (newCursor.length > 0) {
+                const selector = newCursor[newCursor.length - 1];
+                if (selector.index < 0) {
+                  selector.index = 0;
+                }
+                newCursor.push({ fieldID: 1, index: 0 });
+              }
+              return newCursor;
+            });
+            break;
+        }
     }
   }
 
@@ -521,13 +428,59 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      <Global onAction={handleAction}></Global>
+      {printCursor(cursor)}
       <MessageView
         schema={schema}
         messageID={1}
         value={value}
         onAction={handleAction}
         cursor={[]}
+        selected={cursor}
       ></MessageView>
     </main>
   );
+}
+
+class Global extends React.Component<{ onAction: ActionHandler }> {
+  componentDidMount(): void {
+    document.addEventListener("keydown", this.handleKeyDown);
+  }
+
+  componentWillUnmount(): void {
+    document.removeEventListener("keydown", this.handleKeyDown);
+  }
+
+  handleKeyDown = (event: KeyboardEvent): void => {
+    switch (event.key) {
+      case "Escape":
+        console.log("escape");
+        this.props.onAction({
+          type: "set",
+          cursor: [{ fieldID: 3, index: 0 }],
+          value: { type: T.STRING, value: "hello" },
+        });
+        break;
+      case "ArrowUp":
+        console.log("arrow up");
+        this.props.onAction({ type: "move", direction: "previous" });
+        break;
+      case "ArrowDown":
+        console.log("arrow down");
+        this.props.onAction({ type: "move", direction: "next" });
+        break;
+      case "ArrowLeft":
+        console.log("arrow left");
+        this.props.onAction({ type: "move", direction: "parent" });
+        break;
+      case "ArrowRight":
+        console.log("arrow right");
+        this.props.onAction({ type: "move", direction: "child" });
+        break;
+    }
+  };
+
+  render(): JSX.Element {
+    return <div></div>;
+  }
 }
