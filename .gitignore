@@ -1,17 +1,35 @@
-# elm-package generated files
-elm-stuff/
-# elm-repl generated files
-repl-temp-*
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-elm.js
-
-/client/out
-/server/out
-
-target/
-/dist/
-/.direnv
-
-/bazel-vscode-target
-
+# dependencies
 /node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
