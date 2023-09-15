@@ -324,7 +324,7 @@ export default function Home() {
             [
               3,
               {
-                type: { type: T.MESSAGE, messageID: 2 },
+                type: { type: T.STRING },
                 name: "field_3",
                 repeated: true,
               },
@@ -431,13 +431,9 @@ export default function Home() {
     console.log(action);
     if (action.type === "set") {
       setValue((v) => {
-        const newValue = setFieldValue(action.cursor, action.value, v);
+        const newValue = setFieldValue(v, action.cursor, action.value);
         console.log("new value", newValue);
-        if (newValue.type === T.MESSAGE) {
-          return newValue.value;
-        } else {
-          return v;
-        }
+        return newValue;
       });
     } else if (action.type === "remove") {
       setValue((v) => {
@@ -483,45 +479,37 @@ export default function Home() {
   }
 
   function setFieldValue(
+    message: MessageValue,
     cursor: Cursor,
-    fieldValue: FieldValue,
-    message?: MessageValue
-  ): FieldValue {
+    fieldValue: FieldValue
+  ): MessageValue {
     console.log("setFieldValue", printCursor(cursor), fieldValue);
-    if (cursor.length == 0) {
-      return fieldValue;
-    } else {
-      const newMessage = cloneDeep(message!);
-      const selector = cursor[0];
-      const fieldID = selector.fieldID;
-      const currentFieldValues = newMessage.fields.get(fieldID);
-      if (currentFieldValues !== undefined) {
-        const currentFieldValue =
-          currentFieldValues[selector.index] ??
-          messageValue({
-            fields: new Map<number, Array<FieldValue>>([]),
-          });
-        var messageV;
+    const selector = cursor[0];
+    const newMessage = cloneDeep(message);
+    if (!newMessage.fields.has(selector.fieldID)) {
+      newMessage.fields.set(selector.fieldID, []);
+    }
+    const currentFieldValues = newMessage.fields.get(selector.fieldID)!;
+    if (newMessage.fields.has(selector.fieldID)) {
+      if (cursor.length == 1) {
+        // End recursion.
+        currentFieldValues[selector.index] = fieldValue;
+      } else {
+        const currentFieldValue = currentFieldValues[selector.index];
         if (currentFieldValue.type !== T.MESSAGE) {
           console.log("currentFieldValue is not a message", currentFieldValue);
-          messageV = undefined;
+          return newMessage;
         } else {
-          messageV = currentFieldValue.value;
+          const newMessage = setFieldValue(
+            currentFieldValue.value,
+            cursor.slice(1),
+            fieldValue
+          );
+          currentFieldValues[selector.index] = messageValue(newMessage);
         }
-        const newFieldValue = setFieldValue(
-          cursor.slice(1),
-          fieldValue,
-          messageV // Ok to pass null here, because we know that the field is a message.
-        );
-        currentFieldValues[selector.index] = newFieldValue;
-      } else {
-        const newFieldValue = setFieldValue(cursor.slice(1), fieldValue, {
-          fields: new Map<number, Array<FieldValue>>([]),
-        });
-        newMessage.fields.set(fieldID, [newFieldValue]);
       }
-      return messageValue(newMessage);
     }
+    return newMessage;
   }
 
   return (
