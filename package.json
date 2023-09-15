@@ -13,9 +13,11 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@types/lodash": "^4.14.198",
     "@types/react": "^18.2.21",
     "@types/react-dom": "^18.2.7",
     "generator-code": "^1.7.5",
+    "lodash": "^4.17.21",
     "pinia": "^2.0.32",
     "protobufjs": "^7.2.3",
     "vue": "^3.2.47"

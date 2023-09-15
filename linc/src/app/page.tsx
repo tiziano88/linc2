@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { cloneDeep } from "lodash";
 
 interface MessageValue {
   fields: Map<FieldID, Array<FieldValue>>;
@@ -92,7 +93,7 @@ type FieldType =
 
 type Action =
   | { type: "set"; cursor: Cursor; value: FieldValue }
-  | { type: "remove" };
+  | { type: "remove"; cursor: Cursor };
 
 type ActionHandler = (action: Action) => void;
 
@@ -111,6 +112,18 @@ function FieldValueView({
   onAction: ActionHandler;
   cursor: Cursor;
 }) {
+  function changeHandler(v: React.ChangeEvent<HTMLTextAreaElement>) {
+    console.log("changeHandler", cursor, v.target.value);
+    onAction({
+      type: "set",
+      cursor: cursor,
+      value: stringValue(v.target.value),
+    });
+  }
+  function handleRemove() {
+    const newCursor = cloneDeep(cursor);
+    onAction({ type: "remove", cursor: newCursor });
+  }
   const messageDescriptor = schema.messages.get(messageID);
   if (messageDescriptor === undefined) {
     return <div>message {messageID} not found</div>;
@@ -128,7 +141,16 @@ function FieldValueView({
     if (value.type !== T.STRING) {
       return <div>value is not a string</div>;
     }
-    return <div>{value.value}</div>;
+    return (
+      <div>
+        <button onClick={handleRemove}>REMOVE</button>
+        <textarea
+          className="text-black"
+          value={value.value}
+          onChange={changeHandler}
+        ></textarea>
+      </div>
+    );
   } else if (fieldType.type === T.NUMBER) {
     if (value.type !== T.NUMBER) {
       return <div>value is not a number</div>;
@@ -157,7 +179,7 @@ function FieldValueView({
   }
 }
 
-function FieldView({
+function RepeatedFieldView({
   schema,
   messageID,
   fieldID,
@@ -180,8 +202,8 @@ function FieldView({
   if (fieldDescriptor === undefined) {
     return <div>field not found</div>;
   }
-  function handleClick() {
-    const newCursor = [...cursor];
+  function handleAdd() {
+    const newCursor = cloneDeep(cursor);
     newCursor[newCursor.length - 1].index = values.length;
     var newValue: FieldValue;
     if (fieldDescriptor!.type.type === T.MESSAGE) {
@@ -189,11 +211,11 @@ function FieldView({
         fields: new Map<number, Array<FieldValue>>([]),
       });
     } else if (fieldDescriptor!.type.type === T.STRING) {
-      newValue = stringValue("xyz");
+      newValue = stringValue("");
     } else if (fieldDescriptor!.type.type === T.NUMBER) {
-      newValue = numberValue(123);
+      newValue = numberValue(0);
     } else if (fieldDescriptor!.type.type === T.BOOLEAN) {
-      newValue = { type: T.BOOLEAN, value: true };
+      newValue = { type: T.BOOLEAN, value: false };
     } else {
       newValue = stringValue("unknown");
     }
@@ -203,7 +225,7 @@ function FieldView({
     <div>
       <div>
         {values.map((value, i) => {
-          const fieldValueCursor = [...cursor];
+          const fieldValueCursor = cloneDeep(cursor);
           fieldValueCursor[fieldValueCursor.length - 1].index = i;
           return (
             <div key={i} className="flex">
@@ -222,10 +244,12 @@ function FieldView({
           );
         })}
       </div>
-      <div>
-        [ {fieldID} : {printFieldDescriptor(fieldDescriptor)} ]
-        <button onClick={handleClick}>ADD</button>
-      </div>
+      {(values.length == 0 || fieldDescriptor.repeated) && (
+        <div>
+          [ {fieldID} : {printFieldDescriptor(fieldDescriptor)} ]
+          <button onClick={handleAdd}>ADD</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -252,17 +276,19 @@ function MessageView({
       {Array.from(messageDescriptor.fields).map(
         ([fieldID, fieldDescriptor]) => {
           const values = value.fields.get(fieldID) ?? [];
-          const fieldCursor = [...cursor, { fieldID, index: 0 }];
+          // Points to the first element of the array, even if empty.
+          const fieldCursor = cloneDeep(cursor);
+          fieldCursor.push({ fieldID, index: 0 });
           return (
             <div key={fieldID}>
-              <FieldView
+              <RepeatedFieldView
                 schema={schema}
                 messageID={messageID}
                 fieldID={fieldID}
                 values={values}
                 onAction={onAction}
                 cursor={fieldCursor}
-              ></FieldView>
+              ></RepeatedFieldView>
             </div>
           );
         }
@@ -277,21 +303,21 @@ export default function Home() {
       [
         1,
         {
-          name: "message_1",
+          name: "manifest",
           fields: new Map<FieldID, FieldDescriptor>([
             [
               1,
               {
-                type: { type: T.STRING },
-                name: "field_1",
-                repeated: true,
+                type: { type: T.MESSAGE, messageID: 2 },
+                name: "package",
+                repeated: false,
               },
             ],
             [
               2,
               {
-                type: { type: T.STRING },
-                name: "field_2",
+                type: { type: T.MESSAGE, messageID: 3 },
+                name: "dependencies",
                 repeated: true,
               },
             ],
@@ -317,14 +343,62 @@ export default function Home() {
       [
         2,
         {
-          name: "message_2",
+          name: "package",
           fields: new Map<FieldID, FieldDescriptor>([
             [
               1,
               {
                 type: { type: T.STRING },
-                name: "field_2_1",
+                name: "name",
+                repeated: false,
+              },
+            ],
+            [
+              2,
+              {
+                type: { type: T.STRING },
+                name: "version",
+                repeated: false,
+              },
+            ],
+            [
+              3,
+              {
+                type: { type: T.STRING },
+                name: "authors",
                 repeated: true,
+              },
+            ],
+          ]),
+        },
+      ],
+      [
+        3,
+        {
+          name: "dependency",
+          fields: new Map<FieldID, FieldDescriptor>([
+            [
+              1,
+              {
+                type: { type: T.STRING },
+                name: "name",
+                repeated: false,
+              },
+            ],
+            [
+              2,
+              {
+                type: { type: T.STRING },
+                name: "version",
+                repeated: false,
+              },
+            ],
+            [
+              3,
+              {
+                type: { type: T.STRING },
+                name: "registry",
+                repeated: false,
               },
             ],
           ]),
@@ -332,7 +406,7 @@ export default function Home() {
       ],
     ]),
   };
-  const initValue: MessageValue = {
+  const initValue2: MessageValue = {
     fields: new Map<number, Array<FieldValue>>([
       [1, [stringValue("hello"), stringValue("hello_2")]],
       [
@@ -348,13 +422,16 @@ export default function Home() {
       ],
     ]),
   };
+  const initValue: MessageValue = {
+    fields: new Map<number, Array<FieldValue>>([]),
+  };
   const [value, setValue] = useState<MessageValue>(initValue);
 
   function handleAction(action: Action) {
     console.log(action);
     if (action.type === "set") {
       setValue((v) => {
-        const newValue = setFieldValue(v, action.cursor, action.value);
+        const newValue = setFieldValue(action.cursor, action.value, v);
         console.log("new value", newValue);
         if (newValue.type === T.MESSAGE) {
           return newValue.value;
@@ -362,19 +439,59 @@ export default function Home() {
           return v;
         }
       });
+    } else if (action.type === "remove") {
+      setValue((v) => {
+        const newValue = removeFieldValue(v, action.cursor);
+        console.log("new value", newValue);
+        return newValue;
+      });
     }
   }
 
-  function setFieldValue(
+  function removeFieldValue(
     message: MessageValue,
+    cursor: Cursor
+  ): MessageValue {
+    console.log("removeFieldValue", printCursor(cursor));
+    const selector = cursor[0];
+    const newMessage = cloneDeep(message);
+    if (newMessage.fields.has(selector.fieldID)) {
+      const currentFieldValues = newMessage.fields.get(selector.fieldID)!;
+      if (cursor.length == 1) {
+        if (currentFieldValues.length > 1) {
+          currentFieldValues.splice(selector.index, 1);
+        } else {
+          // Last element in the array, so remove the field entirely.
+          // TODO: Check the actual index.
+          newMessage.fields.delete(selector.fieldID);
+        }
+      } else {
+        const currentFieldValue = currentFieldValues[selector.index];
+        if (currentFieldValue.type !== T.MESSAGE) {
+          console.log("currentFieldValue is not a message", currentFieldValue);
+          return newMessage;
+        } else {
+          const newMessage = removeFieldValue(
+            currentFieldValue.value,
+            cursor.slice(1)
+          );
+          currentFieldValues[selector.index] = messageValue(newMessage);
+        }
+      }
+    }
+    return newMessage;
+  }
+
+  function setFieldValue(
     cursor: Cursor,
-    fieldValue: FieldValue
+    fieldValue: FieldValue,
+    message?: MessageValue
   ): FieldValue {
     console.log("setFieldValue", printCursor(cursor), fieldValue);
-    if (cursor.length < 1) {
+    if (cursor.length == 0) {
       return fieldValue;
     } else {
-      const newMessage = { ...message };
+      const newMessage = cloneDeep(message!);
       const selector = cursor[0];
       const fieldID = selector.fieldID;
       const currentFieldValues = newMessage.fields.get(fieldID);
@@ -384,24 +501,23 @@ export default function Home() {
           messageValue({
             fields: new Map<number, Array<FieldValue>>([]),
           });
+        var messageV;
         if (currentFieldValue.type !== T.MESSAGE) {
-          console.log("currentFieldValue is not a message");
-          return messageValue(newMessage);
+          console.log("currentFieldValue is not a message", currentFieldValue);
+          messageV = undefined;
+        } else {
+          messageV = currentFieldValue.value;
         }
         const newFieldValue = setFieldValue(
-          currentFieldValue.value,
           cursor.slice(1),
-          fieldValue
+          fieldValue,
+          messageV // Ok to pass null here, because we know that the field is a message.
         );
         currentFieldValues[selector.index] = newFieldValue;
       } else {
-        const newFieldValue = setFieldValue(
-          {
-            fields: new Map<number, Array<FieldValue>>([]),
-          },
-          cursor.slice(1),
-          fieldValue
-        );
+        const newFieldValue = setFieldValue(cursor.slice(1), fieldValue, {
+          fields: new Map<number, Array<FieldValue>>([]),
+        });
         newMessage.fields.set(fieldID, [newFieldValue]);
       }
       return messageValue(newMessage);
