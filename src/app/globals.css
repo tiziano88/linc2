@@ -16,6 +16,22 @@
   }
 }
 
+.fieldDescriptor {
+  @apply bg-slate-400 inline outline outline-1 border-cyan-800;
+}
+
+.addButton {
+  @apply bg-green-600 text-white;
+}
+
+.removeButton {
+  @apply bg-red-600 text-white;
+}
+
+.fieldValueText {
+  @apply border border-gray-400 rounded-md text-black;
+}
+
 body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(

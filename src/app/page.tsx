@@ -143,12 +143,15 @@ function FieldValueView({
     }
     return (
       <div>
-        <button onClick={handleRemove}>REMOVE</button>
         <textarea
-          className="text-black"
+          rows={1}
+          className="fieldValueText"
           value={value.value}
           onChange={changeHandler}
         ></textarea>
+        <button className="removeButton" onClick={handleRemove}>
+          REMOVE
+        </button>
       </div>
     );
   } else if (fieldType.type === T.NUMBER) {
@@ -229,7 +232,7 @@ function RepeatedFieldView({
           fieldValueCursor[fieldValueCursor.length - 1].index = i;
           return (
             <div key={i} className="flex">
-              <div>
+              <div className="fieldDescriptor">
                 [ {fieldID} : {printFieldDescriptor(fieldDescriptor)} ]
               </div>
               <FieldValueView
@@ -246,8 +249,12 @@ function RepeatedFieldView({
       </div>
       {(values.length == 0 || fieldDescriptor.repeated) && (
         <div>
-          [ {fieldID} : {printFieldDescriptor(fieldDescriptor)} ]
-          <button onClick={handleAdd}>ADD</button>
+          <div className="fieldDescriptor">
+            [ {fieldID} : {printFieldDescriptor(fieldDescriptor)} ]
+          </div>
+          <button className="addButton" onClick={handleAdd}>
+            ADD
+          </button>
         </div>
       )}
     </div>
