@@ -191,16 +191,18 @@ function RepeatedFieldView({
     }
     onAction({ type: "set", cursor: newCursor, value: newValue });
   }
-  function handleSelect(event: React.MouseEvent<HTMLDivElement, MouseEvent>) {
-    event.preventDefault();
-    onAction({ type: "select", cursor: cursor });
-  }
   return (
     <div>
       <div>
         {values.map((value, i) => {
           const fieldValueCursor = cloneDeep(cursor);
           fieldValueCursor[fieldValueCursor.length - 1].index = i;
+          function handleSelect(
+            event: React.MouseEvent<HTMLDivElement, MouseEvent>
+          ) {
+            event.preventDefault();
+            onAction({ type: "select", cursor: fieldValueCursor });
+          }
           return (
             <div key={i} className="flex m-2">
               <div className="fieldDescriptor" onMouseDown={handleSelect}>
