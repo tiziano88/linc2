@@ -7,5 +7,8 @@ deploy: build
 build:
     npm run build
 
+watch:
+    npx jest --watch
+
 test:
     npx jest

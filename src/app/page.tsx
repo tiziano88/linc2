@@ -19,8 +19,11 @@ import {
   MessageValue,
   Schema,
   T,
+  child,
   messageValue,
+  nextSibling,
   numberValue,
+  previousSibling,
   printCursor,
   printFieldDescriptor,
   stringValue,
@@ -178,9 +181,7 @@ function RepeatedFieldView({
     newCursor[newCursor.length - 1].index = values.length;
     var newValue: FieldValue;
     if (fieldDescriptor!.type.type === T.MESSAGE) {
-      newValue = messageValue({
-        fields: new Map<number, Array<FieldValue>>([]),
-      });
+      newValue = messageValue();
     } else if (fieldDescriptor!.type.type === T.STRING) {
       newValue = stringValue("");
     } else if (fieldDescriptor!.type.type === T.NUMBER) {
@@ -315,24 +316,12 @@ export default function Home() {
         switch (action.direction) {
           case "previous":
             setCursor((c) => {
-              const newCursor = cloneDeep(c);
-              if (newCursor.length > 0) {
-                const selector = newCursor[newCursor.length - 1];
-                if (selector.index > 0) {
-                  selector.index--;
-                }
-              }
-              return newCursor;
+              return previousSibling({ type: T.MESSAGE, value }, c);
             });
             break;
           case "next":
             setCursor((c) => {
-              const newCursor = cloneDeep(c);
-              if (newCursor.length > 0) {
-                const selector = newCursor[newCursor.length - 1];
-                selector.index++;
-              }
-              return newCursor;
+              return nextSibling({ type: T.MESSAGE, value }, c);
             });
             break;
           case "parent":
@@ -346,34 +335,8 @@ export default function Home() {
             break;
           case "child":
             setCursor((c) => {
-              const newCursor = cloneDeep(c);
               // Move the cursor to the next child element taking into account the actual value, not just the schema.
-              if (newCursor.length > 0) {
-                const selector = newCursor[newCursor.length - 1];
-                const messageDescriptor = schema.messages.get(selector.fieldID);
-                if (messageDescriptor !== undefined) {
-                  const fieldDescriptor = messageDescriptor.fields.get(
-                    selector.fieldID
-                  );
-                  if (fieldDescriptor !== undefined) {
-                    if (fieldDescriptor.type.type === T.MESSAGE) {
-                      const messageValue = value.fields.get(
-                        fieldDescriptor.type.messageID
-                      );
-                      if (messageValue !== undefined) {
-                        if (selector.index < messageValue.length) {
-                          newCursor.push({
-                            fieldID: fieldDescriptor.type.messageID,
-                            index: selector.index,
-                          });
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-
-              return newCursor;
+              return child({ type: T.MESSAGE, value }, c);
             });
             break;
         }
@@ -407,7 +370,10 @@ export default function Home() {
             currentFieldValue.value,
             cursor.slice(1)
           );
-          currentFieldValues[selector.index] = messageValue(newMessage);
+          currentFieldValues[selector.index] = {
+            type: T.MESSAGE,
+            value: newMessage,
+          };
         }
       }
     }
@@ -441,7 +407,10 @@ export default function Home() {
             cursor.slice(1),
             fieldValue
           );
-          currentFieldValues[selector.index] = messageValue(newMessage);
+          currentFieldValues[selector.index] = {
+            type: T.MESSAGE,
+            value: newMessage,
+          };
         }
       }
     }

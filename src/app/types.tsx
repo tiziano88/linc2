@@ -29,11 +29,20 @@ export function numberValue(value: number): FieldValue {
   };
 }
 
-export function messageValue(value: MessageValue): FieldValue {
+export function messageValue(...fields: [FieldID, FieldValue[]][]): FieldValue {
   return {
     type: T.MESSAGE,
-    value: value,
+    value: {
+      fields: new Map(fields),
+    },
   };
+}
+
+export function field(
+  fieldID: FieldID,
+  ...values: FieldValue[]
+): [FieldID, FieldValue[]] {
+  return [fieldID, values];
 }
 
 export type MessageID = number;
@@ -103,4 +112,83 @@ export function getIn(value: FieldValue, cursor: Cursor): FieldValue {
     }
   }
   return current;
+}
+
+export function parent(value: FieldValue, cursor: Cursor): Cursor {
+  if (cursor.length === 0) {
+    return [];
+  } else {
+    return cursor.slice(0, cursor.length - 1);
+  }
+}
+
+export function child(value: FieldValue, cursor: Cursor): Cursor {
+  const current: FieldValue = getIn(value, cursor);
+  if (current.type === T.MESSAGE) {
+    const fieldIDs = [...current.value.fields.keys()];
+    fieldIDs.sort();
+    const firstFieldID = fieldIDs[0];
+    return [...cursor, { fieldID: firstFieldID, index: 0 }];
+  } else {
+    return cursor;
+  }
+}
+
+export function nextSibling(value: FieldValue, cursor: Cursor): Cursor {
+  if (cursor.length === 0) {
+    return [];
+  }
+  const parentCursor = parent(value, cursor);
+  const leafSelector = cursor[cursor.length - 1];
+  const parentNode: FieldValue = getIn(value, parentCursor);
+  if (parentNode.type === T.MESSAGE) {
+    const nextIndex = leafSelector.index + 1;
+    if (nextIndex < parentNode.value.fields.get(leafSelector.fieldID)!.length) {
+      return [
+        ...parentCursor,
+        { fieldID: leafSelector.fieldID, index: nextIndex },
+      ];
+    } else {
+      const fieldIDs = [...parentNode.value.fields.keys()];
+      fieldIDs.sort();
+      const nextFieldID = fieldIDs.find(
+        (fieldID) => fieldID > leafSelector.fieldID
+      )!;
+      return [...parentCursor, { fieldID: nextFieldID, index: 0 }];
+    }
+  } else {
+    return cursor;
+  }
+}
+
+export function previousSibling(value: FieldValue, cursor: Cursor): Cursor {
+  if (cursor.length === 0) {
+    return [];
+  }
+  const parentCursor = parent(value, cursor);
+  const leafSelector = cursor[cursor.length - 1];
+  const parentNode: FieldValue = getIn(value, parentCursor);
+  if (parentNode.type === T.MESSAGE) {
+    if (leafSelector.index > 0) {
+      const previousIndex = leafSelector.index - 1;
+      return [
+        ...parentCursor,
+        { fieldID: leafSelector.fieldID, index: previousIndex },
+      ];
+    } else {
+      const fieldIDs = [...parentNode.value.fields.keys()];
+      fieldIDs.sort();
+      const previousFieldID = fieldIDs.findLast(
+        (fieldID) => fieldID < leafSelector.fieldID
+      )!;
+      const previousField = parentNode.value.fields.get(previousFieldID)!;
+      const previousIndex = previousField.length - 1;
+      return [
+        ...parentCursor,
+        { fieldID: previousFieldID, index: previousIndex },
+      ];
+    }
+  } else {
+    return cursor;
+  }
 }
