@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { cloneDeep } from "lodash";
 import _ from "lodash";
 import React from "react";
+import { Map as IMap, List } from "immutable";
 import {
   Action,
   ActionHandler,
@@ -346,13 +347,32 @@ export default function Home() {
           case "child":
             setCursor((c) => {
               const newCursor = cloneDeep(c);
+              // Move the cursor to the next child element taking into account the actual value, not just the schema.
               if (newCursor.length > 0) {
                 const selector = newCursor[newCursor.length - 1];
-                if (selector.index < 0) {
-                  selector.index = 0;
+                const messageDescriptor = schema.messages.get(selector.fieldID);
+                if (messageDescriptor !== undefined) {
+                  const fieldDescriptor = messageDescriptor.fields.get(
+                    selector.fieldID
+                  );
+                  if (fieldDescriptor !== undefined) {
+                    if (fieldDescriptor.type.type === T.MESSAGE) {
+                      const messageValue = value.fields.get(
+                        fieldDescriptor.type.messageID
+                      );
+                      if (messageValue !== undefined) {
+                        if (selector.index < messageValue.length) {
+                          newCursor.push({
+                            fieldID: fieldDescriptor.type.messageID,
+                            index: selector.index,
+                          });
+                        }
+                      }
+                    }
+                  }
                 }
-                newCursor.push({ fieldID: 1, index: 0 });
               }
+
               return newCursor;
             });
             break;
@@ -427,6 +447,11 @@ export default function Home() {
     }
     return newMessage;
   }
+
+  let m = IMap<FieldID, List<FieldValue>>();
+  m = m.set(1, List([stringValue("hello")]));
+  let v = m.getIn([2, 1]);
+  console.log("v", v);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-24">

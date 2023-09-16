@@ -6,3 +6,6 @@ deploy: build
 
 build:
     npm run build
+
+test:
+    npx jest

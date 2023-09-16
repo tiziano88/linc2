@@ -92,3 +92,15 @@ export type Action =
   | { type: "move"; direction: "previous" | "next" | "parent" | "child" };
 
 export type ActionHandler = (action: Action) => void;
+
+export function getIn(value: FieldValue, cursor: Cursor): FieldValue {
+  let current: FieldValue = value;
+  for (const selector of cursor) {
+    if (current.type === T.MESSAGE) {
+      current = current.value.fields.get(selector.fieldID)![selector.index];
+    } else {
+      throw new Error("Not a message");
+    }
+  }
+  return current;
+}
